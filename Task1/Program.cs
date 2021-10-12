@@ -23,6 +23,7 @@ namespace Task1
             Console.WriteLine($"Чистим папку {folderToClean} от файлов и папок, которые не использовались более {timeInMinutes} минут");
             if (Directory.Exists(folderToClean))        // Достаточно ли проверки корневого каталога, или безопаснее проверять каждый каталог?
                                                         // состояние диска может измениться, пока программа работает 
+                                                        // Нужно ли помещать эту проверку в try/catch?
             {
                 CleanFolder(folderToClean, timeInMinutes);             // Где правильнее сделать try/catch - здесь или внутри метода?
             }
@@ -33,19 +34,21 @@ namespace Task1
             Console.WriteLine("-- End --");
         }
 
-        private static void CleanFolder(string folderToClean, int timeInMinutes, string indent = "")    // indent был придуман для варианта с рекурсией, чтобы вывод был более красивым
+        private static void CleanFolder(string folderToClean, int timeInMinutes)    // indent был придуман для варианта с рекурсией, чтобы вывод был более красивым
         {
             string[] files = Directory.GetFiles(folderToClean); // Начинаем с удаления файлов
+                                                                // Вопрос - стоит ли помещать это в try/catch?
+
             foreach (string file in files.Where(f => File.GetLastAccessTime(f) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes))))
             {
-                Console.WriteLine($"{indent}{file} accessed at {File.GetLastAccessTime(file)} - deleting");
+                Console.WriteLine($"{file} accessed at {File.GetLastAccessTime(file)} - deleting");
                 try
                 {
                     File.Delete(file);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"{indent}Failed to delete {file}: {ex.Message}");
+                    Console.WriteLine($"Failed to delete {file}: {ex.Message}");
                 }
             }
 
@@ -58,7 +61,7 @@ namespace Task1
             foreach (string dir in dirs.Where(d => Directory.GetLastAccessTime(d) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes)) ))
             {
                 //Console.WriteLine($"\n{indent}Cleaning directory {dir}");
-                Console.WriteLine($"{indent}{dir} was accessed at {Directory.GetLastAccessTime(dir)} - deleting");
+                Console.WriteLine($"{dir} was accessed at {Directory.GetLastAccessTime(dir)} - deleting");
                 try
                 {
                     Directory.Delete(dir, true);
