@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace Task2
 {
-    class Program
+    public class Program
     {
         /// <summary>
         /// Напишите программу, которая считает размер папки на диске (вместе со всеми вложенными папками и файлами). 
@@ -13,25 +13,21 @@ namespace Task2
         /// </summary>
         static void Main(string[] args)
         {
-
             const string path = @"C:\Scan";
             Console.WriteLine($"Calculating size of {path}");
-            if (Directory.Exists(path))        // Стоит ли помещать это в блок try/catch ?
+            if (Directory.Exists(path))       
             {
-                Console.WriteLine($"Calculating size of {path}");
                 long dirSize = GetDirSize(path);
-                Console.WriteLine($"Size of {path} is {dirSize} bytes");
-
+                Console.WriteLine($"Size of {path} is {dirSize:0,0} bytes");
             }
             else
             {
                 Console.WriteLine($"path {path} does not exists");
             }
-
             Console.WriteLine("-- End --");
         }
 
-        private static long GetDirSize(string path)
+        public static long GetDirSize(string path)
         {
             long size = 0;
             try

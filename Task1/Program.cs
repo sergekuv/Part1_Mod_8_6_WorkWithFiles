@@ -14,18 +14,16 @@ namespace Task1
     /// 4 балла(отлично) : предусмотрена проверка на наличие папки по заданному пути(строчка if directory.Exists);  -- сделано
     /// предусмотрена обработка исключений при доступе к папке(блок try-catch, а также логирует исключение в консоль). -- сделано, но жду комментариев по поводу использования try/catch
     /// </summary>
-    class Program
+    public class Program      // Это сделано public для использования в задаче 3. Вопрос: есть ли лучшее решение?
     {
         static void Main(string[] args)
         {
             const string folderToClean = @"C:\Scan\ToClean";    // Папка, которую мы собираемся чистить
-            const int timeInMinutes = 1;                       // Если доступ к папке или файлу был раньше указанного здесь, папка или файл удаляются
-            Console.WriteLine($"Чистим папку {folderToClean} от файлов и папок, которые не использовались более {timeInMinutes} минут");
-            if (Directory.Exists(folderToClean))        // Достаточно ли проверки корневого каталога, или безопаснее проверять каждый каталог?
-                                                        // состояние диска может измениться, пока программа работает 
-                                                        // Нужно ли помещать эту проверку в try/catch?
+            const int ageInMinutes = 1;                       // Если доступ к папке или файлу был раньше указанного здесь, папка или файл удаляются
+            Console.WriteLine($"Inspecting {folderToClean} for files/folders not accessed during last {ageInMinutes} minute(s) and delete them");
+            if (Directory.Exists(folderToClean))       
             {
-                CleanFolder(folderToClean, timeInMinutes);             // Где правильнее сделать try/catch - здесь или внутри метода?
+                CleanFolder(folderToClean, ageInMinutes);             // Где правильнее сделать try/catch - здесь или внутри метода?
             }
             else
             {
@@ -34,65 +32,59 @@ namespace Task1
             Console.WriteLine("-- End --");
         }
 
-        private static void CleanFolder(string folderToClean, int timeInMinutes)    // indent был придуман для варианта с рекурсией, чтобы вывод был более красивым
+        public static void CleanFolder(string folderToClean, int timeInMinutes)  
         {
-            string[] files = Directory.GetFiles(folderToClean); // Начинаем с удаления файлов
-                                                                // Вопрос - стоит ли помещать это в try/catch?
-
-            foreach (string file in files.Where(f => File.GetLastAccessTime(f) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes))))
+            // Вопрос: что правильнее - делать один большой try/catch или свой для каждой операции, способной вызвать исключение?
+            // Например, один для .GetFiles и один для каждого .Delete
+            // И нормальна ли конструкция со вложенными try/catch, созданная ниже? 
+            try     // Удаление файлов
             {
-                Console.WriteLine($"{file} accessed at {File.GetLastAccessTime(file)} - deleting");
-                try
+                string[] files = Directory.GetFiles(folderToClean);         
+                foreach (string file in files.Where(f => File.GetLastAccessTime(f) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes))))
                 {
-                    File.Delete(file);
+                    Console.WriteLine($"{file} accessed at {File.GetLastAccessTime(file)} - deleting");
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Failed to delete File {file}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Failed to delete {file}: {ex.Message}");
-                }
+
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to get list of files in {folderToClean} - aged files will not be deleted: {ex.Message} ");
             }
 
-            string[] dirs = Directory.GetDirectories(folderToClean);    // Теперь удаляем каталоги
-
-            // Насколько я понял, манипуляции с файлами и папками внутри интересующей нас папки (при любой глубине вложенности) меняют и "время последнего доступа" к этой папке.
-            // Поэтому рекурсия с проверкой времени доступа ко всем вложенным папкам и файлам не нужна (этот код ниже закомментирован),
-            // и можно удалить папку и все содержимоt, используя Directory.Delete(dir, true)
-            // Если я не прав - пишите, исправлю..
-            foreach (string dir in dirs.Where(d => Directory.GetLastAccessTime(d) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes)) ))
+            try     // Удаление каталогов
             {
-                //Console.WriteLine($"\n{indent}Cleaning directory {dir}");
-                Console.WriteLine($"{dir} was accessed at {Directory.GetLastAccessTime(dir)} - deleting");
-                try
+                string[] dirs = Directory.GetDirectories(folderToClean);    
+
+                // Насколько я понял, манипуляции с файлами и папками внутри интересующей нас папки (при любой глубине вложенности) меняют и "время последнего доступа" к этой папке.
+                // Поэтому рекурсия с проверкой времени доступа ко всем вложенным папкам и файлам не нужна (этот код ниже закомментирован),
+                // и можно удалить папку и все содержимоt, используя Directory.Delete(dir, true)
+                // Если я не прав - пишите, исправлю..
+                foreach (string dir in dirs.Where(d => Directory.GetLastAccessTime(d) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes))))
                 {
-                    Directory.Delete(dir, true);
+                    Console.WriteLine($"{dir} was accessed at {Directory.GetLastAccessTime(dir)} - deleting");
+                    try
+                    {
+                        Directory.Delete(dir, true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error while deleting {dir}: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Can't delete {dir}: {ex.Message}");
-                }
-
-
-                //CleanFolder(dir, indent + "  ");   // Чистим папку и подпапки
-                // Теперь удаляем папку, если она пуста и не использовалась более timeInMinutes минут
-
-                //if ((Directory.GetLastAccessTime(dir) < (DateTime.Now - TimeSpan.FromMinutes(timeInMinutes))) )  //&& IsDirectoryEmpty(dir))
-                //{
-                //    Console.WriteLine($"{indent}{dir} is empty and accessed at {File.GetLastAccessTime(dir)} - deleting ");
-                //    try
-                //    {
-                //        Directory.Delete(dir);
-                //    }
-                //    catch (Exception ex)
-                //    {
-                //        Console.WriteLine($"{indent}Failed to delete {dir}: {ex.Message}");
-                //    }
-                //}
             }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to get directory list in {folderToClean} - aged dirs will not be deleted : {ex.Message}");
 
-        }
-        private static bool IsDirectoryEmpty(string path)
-        {
-            return !Directory.EnumerateFileSystemEntries(path).Any();
+            }
         }
     }
 }
