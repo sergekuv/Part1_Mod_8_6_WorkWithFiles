@@ -12,7 +12,8 @@ namespace Task3
         /// При запуске программа должна:
         /// - Показать, сколько весит папка до очистки.Использовать метод из задания 2. 
         /// - Выполнить очистку.
-        /// - Показать сколько файлов удалено и сколько места освобождено. 
+        /// - Показать сколько файлов удалено и сколько места освобождено.  - надеюсь, тут можно вычесть из начальных значений конечные, 
+        ///                                                                    если нужно считать размер в явном виде - пишите, исправлю
         /// - Показать, сколько папка весит после очистки.
         /// </summary>
         /// <param name="args"></param>
@@ -23,24 +24,29 @@ namespace Task3
 
             if (Directory.Exists(path))
             {
-                // К сожалению, просто использовать код задач 1 и 2 не получается - доступ к файлам для определения их размера изменяет время доступа
+                // К сожалению, просто использовать код задачи 1 не получается - доступ к файлам для определения их размера изменяет значение свойства "время доступа"
                 // Поэтому сначала сохраняем список "старых" директорий
-                string[] allDirs = Directory.GetDirectories(path);
-                string[] agedDirs = GetAgedDirs(allDirs, ageInMinutes); // Пришлось делать массив старых каталогов - при использовании LINK-звпроса в нужный момент список оказывался пустым
-                                                                        // (надеюсь, позже на курсе мы узнаем, почему так происходит)
-                                                                        // Вероятно, есть способ лучше?
+                string[] agedDirs = GetAgedDirs(Directory.GetDirectories(path), ageInMinutes); // Пришлось делать массив старых каталогов -
+                                                                         // при использовании LINQ-звпроса в нужный момент список оказывался пустым
+                                                                         // (надеюсь, позже на курсе мы узнаем, почему так происходит; вероятно, из-за lazy)
+                                                                         // Может быть, есть способ лучше?
 
-                long totalDirSize = Task2.Program.GetDirSize(path);
-                Console.WriteLine($"Initial size of {path} is {totalDirSize:0,0} bytes");
-                long agedDirSize = GetAgedDirSize(agedDirs);    // Здесь хорошо бы использовать метод из задачи 2, но не получается - разные типы параметров
+                FileInfo[] agedFiles = ((new DirectoryInfo(path).GetFiles("*.*", SearchOption.TopDirectoryOnly))
+                    .Where(file => file.LastAccessTime < (DateTime.Now - TimeSpan.FromMinutes(ageInMinutes)))).ToArray();
 
-                Console.WriteLine($"\nInspecting {path} for files/folders not accessed during last {ageInMinutes} minute(s) and delete them");
-                Console.WriteLine($"Size of aged directories: {agedDirSize:0,0}");
-                // Task1.Program.CleanFolder(path, ageInMinutes);  // вот тут приходится отказаться от использования метода из 1й задачи - он не сработает
-                // Поэтому сделаем новый метод
+                int initFileCount = Directory.GetFiles(path, "*", SearchOption.AllDirectories).Length;
+                long initTotalDirSize = Task2.Program.GetDirSize(path);     
+
+                Console.WriteLine($"Initial size of {path} is {initTotalDirSize:0,0} bytes; there are {initFileCount} files inside");
+                Console.WriteLine($"\nInspecting {path} for files/folders not accessed during last {ageInMinutes} minute(s) to delete them");
+
                 DeleteAgedDirs(agedDirs);
-                totalDirSize = Task2.Program.GetDirSize(path);
-                Console.WriteLine($"\nResulting size of {path} after cleaning is {totalDirSize:0,0} bytes");
+                DeleteAgedFiles(agedFiles);
+                int finalFileCount = Directory.GetFiles(path, "*", SearchOption.AllDirectories).Length;
+                long finalTotalDirSize = Task2.Program.GetDirSize(path);
+
+                Console.WriteLine($"\nResulting size of {path} after cleaning is {finalTotalDirSize:0,0} bytes;  there are {finalFileCount} files inside" +
+                    $"\ndeleted {initFileCount - finalFileCount} files; cleaned {initTotalDirSize - finalTotalDirSize:0,0} bytes");
             }
             else
             {
@@ -48,6 +54,22 @@ namespace Task3
             }
 
             Console.WriteLine("-- End --");
+        }
+
+        private static void DeleteAgedFiles(FileInfo[] agedFiles)
+        {
+            foreach (FileInfo f in agedFiles)
+            {
+                try
+                {
+                    Console.WriteLine($"Deleting {f.Name}");
+                    f.Delete();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Failed to delete file {f}: {ex.Message}");
+                }
+            }
         }
 
         private static string[] GetAgedDirs(string[] allDirs, int ageInMinutes)
